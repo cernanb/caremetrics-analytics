@@ -1,0 +1,28 @@
+sources:
+  - name: caremetrics
+    description: >
+      Operational tables of the CareMetrics clinic database (caremetrics-source),
+      replicated from Neon Postgres by Airbyte.
+    schema: caremetrics_raw
+    loader: airbyte
+    config:
+      loaded_at_field: _airbyte_extracted_at
+      freshness:
+        warn_after: { count: 1, period: day }
+        error_after: { count: 7, period: day }
+
+    tables:
+      - name: locations
+        description: Clinics. Full refresh on every sync.
+      - name: payers
+        description: Insurance payers. Full refresh on every sync.
+      - name: providers
+        description: Clinicians and their home clinic. Full refresh on every sync.
+      - name: patients
+        description: Patient demographics. Incremental, deduplicated on id by updated_at.
+      - name: appointments
+        description: Scheduled visits and their outcomes. Incremental, deduplicated on id by updated_at.
+      - name: encounters
+        description: Completed visits, one per completed appointment. Incremental, deduplicated on id by updated_at.
+      - name: claims
+        description: Insurance claims, at most one per encounter. Incremental, deduplicated on id by updated_at.
