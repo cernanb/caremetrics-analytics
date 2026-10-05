@@ -138,3 +138,50 @@ models:
           That is an observation about the data, not a source rule; use snapshots for departure history.
         data_tests:
           - not_null
+  - name: stg_caremetrics__patients
+    description: >
+      One row per registered patient, in its latest version.
+      Synthetic data, no real PHI.
+      Cleaned one-to-one from the caremetrics.patients source, an incremental Airbyte stream deduplicated on id.
+      Insurance is not stored on the patient: a payer appears only on claims, and uninsured patients have none.
+    columns:
+      - name: patient_id
+        description: "Primary key. The source id (a UUIDv7), renamed."
+        data_tests:
+          - unique
+          - not_null
+      - name: first_name
+        description: "Patient's first name (synthetic)."
+        data_tests:
+          - not_null
+      - name: last_name
+        description: "Patient's last name (synthetic)."
+        data_tests:
+          - not_null
+      - name: date_of_birth
+        description: >
+          Date of birth, a plain date with no time zone.
+          Compute age relative to the event being analyzed (for example the appointment date), not today.
+        data_tests:
+          - not_null
+      - name: gender
+        description: "Recorded gender: female, male, other or unknown (enforced in the source)."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [female, male, other, unknown]
+      - name: state
+        description: "Two-letter US state code of the patient's residence, not of the clinic they visit."
+        data_tests:
+          - not_null
+      - name: created_at
+        description: "When the patient registered with the practice (UTC). Never before the date of birth."
+        data_tests:
+          - not_null
+      - name: updated_at
+        description: >
+          When the patient's record last changed in the source (UTC), set by a trigger on every update.
+          About 15% of patients were edited after registration (address, name or demographic corrections).
+        data_tests:
+          - not_null
