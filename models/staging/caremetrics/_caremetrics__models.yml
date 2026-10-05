@@ -69,3 +69,72 @@ models:
           Equal to created_at for payers that have never been edited.
         data_tests:
           - not_null
+  - name: stg_caremetrics__providers
+    description: >
+      One row per clinician, active or departed.
+      Cleaned one-to-one from the caremetrics.providers source: renamed columns, Airbyte metadata dropped.
+      Departed providers stay in the table with is_active = false.
+    columns:
+      - name: provider_id
+        description: "Primary key. The source id (a UUIDv7), renamed."
+        data_tests:
+          - unique
+          - not_null
+      - name: first_name
+        description: "Provider's first name (synthetic)."
+        data_tests:
+          - not_null
+      - name: last_name
+        description: "Provider's last name (synthetic)."
+        data_tests:
+          - not_null
+      - name: location_id
+        description: >
+          The clinic the provider works at.
+          Primary care providers work at every clinic, specialists only at the three established "hub" clinics.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref("stg_caremetrics__locations")
+                field: location_id
+      - name: is_active
+        description: >
+          False once the provider has left the practice; renamed from the source's active.
+          Departures are updates, never deletes, so departed providers keep their history.
+        data_tests:
+          - not_null
+      - name: specialty
+        description: >
+          Clinical specialty, one of ten. It shapes which patients the provider sees and the visit mix.
+          The source does not constrain the values, so a new specialty only warns.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values:
+                  [
+                    "Cardiology",
+                    "Dermatology",
+                    "Endocrinology",
+                    "Family Medicine",
+                    "Gastroenterology",
+                    "Internal Medicine",
+                    "Obstetrics and Gynecology",
+                    "Orthopedics",
+                    "Pediatrics",
+                    "Psychiatry",
+                  ]
+              config:
+                severity: warn
+      - name: created_at
+        description: "The provider's hire date (UTC). Never before their clinic went live."
+        data_tests:
+          - not_null
+      - name: updated_at
+        description: >
+          When the provider's record last changed in the source (UTC), set by a trigger on every update.
+          For departed providers this is currently the departure date, because the source does not edit them otherwise.
+          That is an observation about the data, not a source rule; use snapshots for departure history.
+        data_tests:
+          - not_null
