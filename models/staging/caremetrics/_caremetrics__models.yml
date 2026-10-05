@@ -34,3 +34,38 @@ models:
           Equal to created_at for clinics that have never been edited.
         data_tests:
           - not_null
+  - name: stg_caremetrics__payers
+    description: >
+      One row per insurance payer (plan) the practice bills.
+      Cleaned one-to-one from the caremetrics.payers source: renamed columns, Airbyte metadata dropped.
+      Uninsured (self-pay) patients have no payer row, and their encounters produce no claims.
+    columns:
+      - name: payer_id
+        description: "Primary key. The source id (a UUIDv7), renamed."
+        data_tests:
+          - unique
+          - not_null
+      - name: payer_name
+        description: "Name of the payer. Invented, not a real insurer. Unique across payers (enforced in the source)."
+        data_tests:
+          - unique
+          - not_null
+      - name: payer_type
+        description: >
+          Category of the payer: commercial, medicare, medicaid or other_government.
+          The usual grouping for comparing denial rates, paid-to-billed ratios and days to payment.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [commercial, medicare, medicaid, other_government]
+      - name: created_at
+        description: "When the payer contract was set up in the operational system (UTC)."
+        data_tests:
+          - not_null
+      - name: updated_at
+        description: >
+          When the payer's record last changed in the source (UTC), set by a trigger on every update.
+          Equal to created_at for payers that have never been edited.
+        data_tests:
+          - not_null
