@@ -1,0 +1,36 @@
+models:
+  - name: stg_caremetrics__locations
+    description: >
+      One row per Larkspur Health clinic.
+      Cleaned one-to-one from the caremetrics.locations source: renamed columns, Airbyte metadata dropped.
+    columns:
+      - name: location_id
+        description: "Primary key. The source id (a UUIDv7), renamed."
+        data_tests:
+          - unique
+          - not_null
+      - name: location_name
+        description: "Display name of the clinic, unique across clinics (enforced in the source)."
+        data_tests:
+          - unique
+          - not_null
+      - name: city
+        description: "City where the clinic is located."
+        data_tests:
+          - not_null
+      - name: state
+        description: "Two-letter US state code of the clinic."
+        data_tests:
+          - not_null
+      - name: created_at
+        description: >
+          When the clinic went live in the operational system (UTC), effectively its opening date.
+          Colorado Springs North opened in April 2025, inside the appointment history, so its volume ramps up from there.
+        data_tests:
+          - not_null
+      - name: updated_at
+        description: >
+          When the clinic's record last changed in the source (UTC), set by a trigger on every update.
+          Equal to created_at for clinics that have never been edited.
+        data_tests:
+          - not_null
