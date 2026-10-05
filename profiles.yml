@@ -1,0 +1,13 @@
+caremetrics:
+  target: dev
+  outputs:
+    dev:
+      type: bigquery
+      method: oauth # your gcloud application-default login
+      project: care-metrics-510606
+      dataset: caremetrics_dev # layers append a suffix: caremetrics_dev_staging, ...
+      location: US # must match caremetrics_raw
+      threads: 4
+      job_execution_timeout_seconds: 300
+      job_retries: 1
+      maximum_bytes_billed: 1000000000 # 1 GB per query: a cost guard, far above our ~50 MB of raw data
