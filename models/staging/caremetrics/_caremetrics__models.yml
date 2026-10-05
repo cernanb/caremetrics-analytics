@@ -315,3 +315,82 @@ models:
           Usually minutes after the visit ends (note signed); some charts are amended days later.
         data_tests:
           - not_null
+  - name: stg_caremetrics__claims
+    description: >
+      One row per insurance claim, in its latest status.
+      Cleaned one-to-one from the caremetrics.claims source, an incremental Airbyte stream deduplicated on id.
+      At most one claim per encounter, with no resubmissions or corrections.
+      Encounters of uninsured patients and a small share of non-billable visits have no claim.
+      Lifecycle: pending -> submitted -> accepted or denied -> paid (from accepted).
+    columns:
+      - name: claim_id
+        description: "Primary key. The source id (a UUIDv7), renamed."
+        data_tests:
+          - unique
+          - not_null
+      - name: encounter_id
+        description: "The encounter being billed. At most one claim per encounter (enforced in the source)."
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref("stg_caremetrics__encounters")
+                field: encounter_id
+      - name: patient_id
+        description: "The patient billed for. Same as the encounter's patient."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref("stg_caremetrics__patients")
+                field: patient_id
+      - name: provider_id
+        description: "The rendering provider. Same as the encounter's provider."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref("stg_caremetrics__providers")
+                field: provider_id
+      - name: payer_id
+        description: "The payer the claim is billed to: the patient's insurance at the time."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref("stg_caremetrics__payers")
+                field: payer_id
+      - name: claim_status
+        description: >
+          Current status, renamed from the source's status: pending, submitted, accepted, denied or paid (enforced in the source).
+          Only the latest status is kept; there are no adjudication or payment timestamps.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [pending, submitted, accepted, denied, paid]
+      - name: amount_billed
+        description: "Charges billed to the payer, in USD (NUMERIC, two decimals). Always positive."
+        data_tests:
+          - not_null
+      - name: amount_paid
+        description: >
+          Amount the payer paid, in USD (NUMERIC, two decimals).
+          Zero unless claim_status is paid; never more than amount_billed.
+        data_tests:
+          - not_null
+      - name: submitted_at
+        description: "When the claim was sent to the payer (UTC). Null exactly when the claim is pending."
+      - name: created_at
+        description: "When charges were captured and the claim was created (UTC), hours to days after the encounter completed."
+        data_tests:
+          - not_null
+      - name: updated_at
+        description: >
+          When the claim's record last changed in the source (UTC), set by a trigger on every update.
+          For seeded claims this is the time of the latest status transition (for example payment).
+          For claims changed by the source simulator it is the time the change was written, not the simulated event time,
+          so it is not a reliable payment or adjudication date.
+        data_tests:
+          - not_null
