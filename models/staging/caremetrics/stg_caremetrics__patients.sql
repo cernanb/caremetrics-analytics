@@ -1,11 +1,23 @@
-select
-    id as patient_id,
-    first_name,
-    last_name,
-    date_of_birth,
-    gender,
-    state,
-    created_at,
-    updated_at
+with source as (
 
-from {{ source('caremetrics', 'patients') }}
+    select * from {{ source('caremetrics', 'patients') }}
+
+),
+
+renamed as (
+
+    select
+        id as patient_id,
+        first_name,
+        last_name,
+        date_of_birth,
+        gender,
+        state,
+        created_at,
+        updated_at
+
+    from source
+
+)
+
+select * from renamed
