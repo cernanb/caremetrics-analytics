@@ -185,3 +185,69 @@ models:
           About 15% of patients were edited after registration (address, name or demographic corrections).
         data_tests:
           - not_null
+  - name: stg_caremetrics__appointments
+    description: >
+      One row per appointment (booked visit), in its latest status.
+      Cleaned one-to-one from the caremetrics.appointments source, an incremental Airbyte stream deduplicated on id.
+      Covers about two years of history plus about 60 days of future bookings.
+    columns:
+      - name: appointment_id
+        description: "Primary key. The source id (a UUIDv7), renamed."
+        data_tests:
+          - unique
+          - not_null
+      - name: patient_id
+        description: "The patient who booked the appointment."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref("stg_caremetrics__patients")
+                field: patient_id
+      - name: provider_id
+        description: "The provider the appointment is with."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref("stg_caremetrics__providers")
+                field: provider_id
+      - name: location_id
+        description: "The clinic where the appointment takes place."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref("stg_caremetrics__locations")
+                field: location_id
+      - name: scheduled_at
+        description: "When the visit is (or was) scheduled to start (UTC). In the future for upcoming bookings."
+        data_tests:
+          - not_null
+      - name: appointment_status
+        description: >
+          Current status, renamed from the source's status: scheduled, completed, cancelled or no_show (enforced in the source).
+          Only the latest status is kept; there is no timestamp for when it changed.
+          Every completed appointment has exactly one encounter.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [scheduled, completed, cancelled, no_show]
+      - name: appointment_type
+        description: "Kind of visit (enforced in the source). A patient's first visit with a specialty is new_patient."
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [new_patient, follow_up, annual_wellness, consultation, procedure, urgent, telehealth]
+      - name: created_at
+        description: "When the appointment was booked (UTC). scheduled_at minus created_at is the booking lead time."
+        data_tests:
+          - not_null
+      - name: updated_at
+        description: >
+          When the appointment's record last changed in the source (UTC), set by a trigger on every update,
+          typically when its status changed.
+        data_tests:
+          - not_null
