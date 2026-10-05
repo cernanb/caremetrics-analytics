@@ -251,3 +251,67 @@ models:
           typically when its status changed.
         data_tests:
           - not_null
+  - name: stg_caremetrics__encounters
+    description: >
+      One row per encounter: the clinical record of a visit that took place.
+      Cleaned one-to-one from the caremetrics.encounters source, an incremental Airbyte stream deduplicated on id.
+      Exactly one per completed appointment; cancelled, no-show and scheduled appointments have none.
+      Patient, provider and location always match the encounter's appointment.
+    columns:
+      - name: encounter_id
+        description: "Primary key. The source id (a UUIDv7), renamed."
+        data_tests:
+          - unique
+          - not_null
+      - name: appointment_id
+        description: "The completed appointment this encounter records. At most one encounter per appointment (enforced in the source)."
+        data_tests:
+          - unique
+          - not_null
+          - relationships:
+              arguments:
+                to: ref("stg_caremetrics__appointments")
+                field: appointment_id
+      - name: patient_id
+        description: "The patient seen. Same as the appointment's patient."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref("stg_caremetrics__patients")
+                field: patient_id
+      - name: provider_id
+        description: "The provider who saw the patient. Same as the appointment's provider."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref("stg_caremetrics__providers")
+                field: provider_id
+      - name: location_id
+        description: "The clinic where the visit took place. Same as the appointment's location."
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref("stg_caremetrics__locations")
+                field: location_id
+      - name: started_at
+        description: "When the visit started and the chart was opened (UTC)."
+        data_tests:
+          - not_null
+      - name: completed_at
+        description: >
+          When the visit ended (UTC), always after started_at.
+          The source allows null while a visit is in progress, so it is not tested for not_null,
+          although every encounter currently synced is complete.
+      - name: created_at
+        description: "When the encounter record was created (UTC); the same instant as started_at."
+        data_tests:
+          - not_null
+      - name: updated_at
+        description: >
+          When the chart was last changed in the source (UTC), set by a trigger on every update.
+          Usually minutes after the visit ends (note signed); some charts are amended days later.
+        data_tests:
+          - not_null
