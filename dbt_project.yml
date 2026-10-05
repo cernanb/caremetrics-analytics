@@ -1,0 +1,8 @@
+name: caremetrics
+profile: caremetrics
+
+require-dbt-version: [">=1.12.0", "<1.13.0"]
+
+clean-targets:
+  - target
+  - dbt_packages
