@@ -1,4 +1,5 @@
--- The parties of the encounter need to match the parties of the appointment
+-- An encounter's patient, provider and location must match its appointment's.
+-- The source enforces this with a composite foreign key; BigQuery does not.
 -- Returns the violating encounters; the test passes when no rows come back.
 
 select
@@ -8,7 +9,7 @@ select
     encounters.provider_id as encounter_provider_id,
     appointments.provider_id as appointment_provider_id,
     encounters.location_id as encounter_location_id,
-    appointments.location_id as appointment_location_id,
+    appointments.location_id as appointment_location_id
 
 from {{ ref('stg_caremetrics__encounters') }} as encounters
 inner join {{ ref('stg_caremetrics__appointments') }} as appointments
