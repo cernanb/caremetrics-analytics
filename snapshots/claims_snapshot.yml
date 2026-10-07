@@ -1,0 +1,13 @@
+snapshots:
+  - name: claims_snapshot
+    relation: ref('stg_caremetrics__claims')
+    description: >
+      One row per version of each claim, from the first snapshot run onward; history from before then is not available.
+      A version is valid from the claim's updated_at until the next version's (dbt_valid_to is null for the current version).
+      For changes made by the source simulator, updated_at is when the change was written, not the simulated event time,
+      so version periods do not measure real payer turnaround.
+    config:
+      unique_key: claim_id
+      strategy: timestamp
+      updated_at: updated_at
+      hard_deletes: ignore
