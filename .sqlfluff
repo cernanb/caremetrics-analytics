@@ -1,0 +1,18 @@
+# SQLFluff: lint and format the dbt SQL (models/, tests/).
+# Usage: sqlfluff lint   |   sqlfluff fix
+
+[sqlfluff]
+dialect = bigquery
+# The jinja templater renders ref(), source() and config() without connecting to BigQuery,
+# so linting is fast and needs no credentials.
+templater = jinja
+max_line_length = 120
+
+[sqlfluff:templater:jinja]
+apply_dbt_builtins = True
+
+[sqlfluff:rules:capitalisation.keywords]
+capitalisation_policy = lower
+
+[sqlfluff:rules:capitalisation.functions]
+extended_capitalisation_policy = lower
