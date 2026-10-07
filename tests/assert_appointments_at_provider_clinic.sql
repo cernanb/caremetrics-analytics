@@ -1,7 +1,8 @@
 {{ config(severity='warn') }}
 
 -- An appointment should take place at its provider's clinic.
--- Warns rather than fails: providers store only their current clinic, so a valid transfer would flag their past appointments.
+-- Warns rather than fails: providers store only their current clinic,
+-- so a valid transfer would flag their past appointments.
 -- Returns violating appointments; the test passes when no rows come back.
 
 select

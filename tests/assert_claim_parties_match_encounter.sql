@@ -13,5 +13,6 @@ from {{ ref('stg_caremetrics__claims') }} as claims
 inner join {{ ref('stg_caremetrics__encounters') }} as encounters
     on claims.encounter_id = encounters.encounter_id
 
-where claims.patient_id != encounters.patient_id
+where
+    claims.patient_id != encounters.patient_id
     or claims.provider_id != encounters.provider_id

@@ -16,5 +16,6 @@ from {{ ref('stg_caremetrics__claims') }} as claims
 inner join {{ ref('stg_caremetrics__encounters') }} as encounters
     on claims.encounter_id = encounters.encounter_id
 
-where claims.created_at < encounters.completed_at
+where
+    claims.created_at < encounters.completed_at
     or claims.submitted_at < encounters.completed_at

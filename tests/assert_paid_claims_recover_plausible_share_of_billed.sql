@@ -13,5 +13,6 @@ select
 
 from {{ ref('stg_caremetrics__claims') }}
 
-where claim_status = 'paid'
+where
+    claim_status = 'paid'
     and safe_divide(amount_paid, amount_billed) not between 0.20 and 0.90

@@ -14,7 +14,8 @@ select
 from {{ ref('stg_caremetrics__encounters') }} as encounters
 
 inner join {{ ref('stg_caremetrics__appointments') }} as appointments
-    on appointments.appointment_id = encounters.appointment_id
+    on encounters.appointment_id = appointments.appointment_id
 
-where abs(timestamp_diff(encounters.started_at, appointments.scheduled_at, minute)) > 60
+where
+    abs(timestamp_diff(encounters.started_at, appointments.scheduled_at, minute)) > 60
     or encounters.started_at < appointments.created_at

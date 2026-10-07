@@ -7,7 +7,8 @@ select
 
 from {{ ref('stg_caremetrics__appointments') }} as appointments
 left join {{ ref('stg_caremetrics__encounters') }} as encounters
-    on encounters.appointment_id = appointments.appointment_id
+    on appointments.appointment_id = encounters.appointment_id
 
-where appointments.appointment_status = 'completed'
+where
+    appointments.appointment_status = 'completed'
     and encounters.encounter_id is null

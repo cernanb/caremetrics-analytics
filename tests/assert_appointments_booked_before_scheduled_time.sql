@@ -6,6 +6,6 @@ select
     scheduled_at,
     created_at as booked_at
 
-from {{ ref('stg_caremetrics__appointments') }} as appointments
+from {{ ref('stg_caremetrics__appointments') }}
 
 where created_at > scheduled_at

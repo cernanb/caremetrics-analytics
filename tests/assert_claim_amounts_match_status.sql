@@ -13,7 +13,8 @@ select
 
 from {{ ref('stg_caremetrics__claims') }}
 
-where amount_billed <= 0
+where
+    amount_billed <= 0
     or amount_paid < 0
     or amount_paid > amount_billed
     or (amount_paid > 0) != (claim_status = 'paid')

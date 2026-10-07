@@ -15,6 +15,6 @@ select
 from {{ ref('stg_caremetrics__encounters') }} as encounters
 
 inner join {{ ref('stg_caremetrics__appointments') }} as appointments
-    on appointments.appointment_id = encounters.appointment_id
+    on encounters.appointment_id = appointments.appointment_id
 
 where encounters.completed_at > appointments.updated_at

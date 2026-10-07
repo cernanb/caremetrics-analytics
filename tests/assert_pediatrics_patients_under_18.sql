@@ -19,5 +19,6 @@ inner join {{ ref('stg_caremetrics__patients') }} as patients
 inner join {{ ref('stg_caremetrics__providers') }} as providers
     on appointments.provider_id = providers.provider_id
 
-where providers.specialty = 'Pediatrics'
+where
+    providers.specialty = 'Pediatrics'
     and date(appointments.scheduled_at, 'America/Denver') >= date_add(patients.date_of_birth, interval 18 year)
