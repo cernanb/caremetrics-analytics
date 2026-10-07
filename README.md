@@ -20,7 +20,7 @@ This repository starts where that one ends: the `caremetrics_raw` dataset in Big
 |---|---|---|
 | dbt project, sources and staging models | [#1](https://github.com/cernanb/caremetrics-analytics/issues/1) | Done |
 | Intermediate models and marts | [#2](https://github.com/cernanb/caremetrics-analytics/issues/2) | Planned |
-| Snapshots for changing source records | [#3](https://github.com/cernanb/caremetrics-analytics/issues/3) | Planned |
+| Snapshots for changing source records | [#3](https://github.com/cernanb/caremetrics-analytics/issues/3) | Done |
 | Dagster orchestration | [#4](https://github.com/cernanb/caremetrics-analytics/issues/4) | Planned |
 | Looker Studio dashboards | [#5](https://github.com/cernanb/caremetrics-analytics/issues/5) | Planned |
 
@@ -57,9 +57,10 @@ All commands run from the repository root with the virtualenv active.
 | Command | What it does |
 |---|---|
 | `dbt debug` | Check the profile and the BigQuery connection. |
-| `dbt build` | Build all models and run all tests, in dependency order. |
+| `dbt build` | Build all models and snapshots and run all tests, in dependency order. |
 | `dbt build -s <model>` | Build one model and run every test that reads it. |
 | `dbt test -s <test>` | Run one test without rebuilding anything. |
+| `dbt snapshot` | Record new versions of changed records in the snapshot tables. |
 | `dbt source freshness` | Check when Airbyte last synced each raw table. |
 | `dbt show -s <model>` | Preview a model's rows. |
 | `dbt show --inline "<sql>"` | Run ad-hoc SQL, with `ref()` and `source()` resolved. |
@@ -88,8 +89,9 @@ Datasets follow dbt's default schema naming, the target's base dataset plus the 
 |---|---|---|
 | `caremetrics_raw` | Raw tables replicated from the source database | Airbyte |
 | `caremetrics_dev_staging` | Staging views, built locally | dbt, `dev` target |
+| `caremetrics_dev_snapshots` | Snapshot history tables, recorded locally | dbt, `dev` target |
 
-A `prod` target, writing to `caremetrics_staging` and the later layers, will be added with Dagster (#4), together with a dedicated service account.
+A `prod` target, writing to `caremetrics_staging`, `caremetrics_snapshots` and the later layers, will be added with Dagster (#4), together with a dedicated service account.
 Development builds can never overwrite production tables.
 
 ## Project layout
@@ -102,6 +104,7 @@ Development builds can never overwrite production tables.
 │           ├── _caremetrics__sources.yml   # raw tables and freshness checks
 │           ├── _caremetrics__models.yml    # column docs and generic tests
 │           └── stg_caremetrics__*.sql      # one staging model per raw table
+├── snapshots/                              # snapshot definitions, tests and docs: *_snapshot.yml
 ├── tests/                                  # singular tests: assert_*.sql
 ├── dbt_project.yml                         # project and layer configuration
 ├── profiles.yml                            # BigQuery connection (no secrets)
@@ -142,11 +145,42 @@ Each model is a one-to-one cleanup of its raw table:
 Models follow the dbt Labs layout: a `source` CTE, a `renamed` CTE, then `select * from renamed`.
 Every model and column is documented in `_caremetrics__models.yml`.
 
+## Snapshots
+
+Snapshots record the history of records that change, one row per version, in the `snapshots` dataset (`caremetrics_dev_snapshots` locally).
+Unlike models, they cannot be rebuilt: a version exists only because a snapshot run saw it.
+
+| Snapshot | Records | Why its history matters |
+|---|---|---|
+| `patients_snapshot` | Patients | Demographic edits and corrections |
+| `providers_snapshot` | Providers | Departures and clinic transfers |
+| `appointments_snapshot` | Appointments | Status changes: scheduled to completed, cancelled or no-show |
+| `claims_snapshot` | Claims | Status changes and payments |
+
+`encounters` (chart amendments change no column that staging keeps), `locations` and `payers` (almost never change) are not snapshotted.
+
+How they work:
+
+* Each snapshot reads its staging model, so history uses the same clean column names as every other model.
+* The timestamp strategy compares `updated_at`: a record whose `updated_at` moved gets a new version, and its previous version is closed.
+* `dbt_valid_from` is the record's `updated_at`; `dbt_valid_to` is when the next version began, or null for the current version.
+* The source never deletes rows, so deletes are ignored (`hard_deletes: ignore`).
+
+Limits:
+
+* **History starts at the first snapshot run.**
+  Changes before then are not recorded anywhere.
+* **A snapshot sees only what each sync delivered.**
+  Airbyte keeps only the latest version of each row, so several changes to one record between two syncs appear as one version.
+  The order that preserves the most history is: source changes, Airbyte sync, then `dbt snapshot`.
+* **Version periods follow `updated_at`.**
+  For changes made by the source simulator, `updated_at` is when the change was written, not the simulated event time, so version periods do not measure real durations such as payer turnaround.
+
 ## Tests
 
-`dbt build` runs 100 tests.
+`dbt build` runs 117 tests.
 
-**Generic tests (83)**, declared per column in `_caremetrics__models.yml`:
+**Generic tests on staging models (83)**, declared per column in `_caremetrics__models.yml`:
 
 * `unique` and `not_null` on every primary key.
   On incremental streams, `unique` is what proves Airbyte's deduplication worked.
@@ -156,7 +190,12 @@ Every model and column is documented in `_caremetrics__models.yml`.
   These fail the build, because the source enforces the same lists, except `providers.specialty`, which only warns because the source does not constrain it.
 * `not_null` on every column the source declares `not null`.
 
-**Singular tests (17)** in `tests/`, each a query that returns the rows breaking one rule.
+**Generic tests on snapshots (16)**, declared in each `snapshots/*_snapshot.yml`:
+
+* `unique` and `not_null` on `dbt_scd_id`: no version was recorded twice.
+* `not_null` on the record's key, and `unique` restricted to current versions (`where: dbt_valid_to is null`): at most one current version per record.
+
+**Singular tests (18)** in `tests/`, each a query that returns the rows breaking one rule.
 Most are ported from the source repository's `sql/verify_data.sql`:
 
 | Area | Rules |
@@ -166,6 +205,7 @@ Most are ported from the source repository's `sql/verify_data.sql`:
 | Claims | Patient and provider match the encounter; created and submitted after the encounter completed; not before the payer was contracted; amounts and submission time agree with the status; paid share of billed between 20% and 90% (warns). |
 | Clinical plausibility | Pediatrics sees only patients under 18 on the visit date (warns); OB/GYN sees only female patients (warns). |
 | Completeness | Every staging model has as many rows as its raw table. |
+| Snapshot history | Each record's versions are contiguous: every version has a positive period, ends exactly when the next begins, and only the newest is open. |
 
 A test **warns** instead of failing when a violation could be valid data rather than a broken pipeline.
 Each such test explains why in its header comment.
@@ -179,11 +219,12 @@ It relies on a departed provider's `updated_at` being their departure date, whic
   The source records only a claim's latest status.
   `updated_at` is the payment date for seeded claims, but for claims changed by the source simulator it is the time the change was written, not the simulated event time.
   Days to payment therefore cannot be computed reliably yet; this needs a decision before the marts (#2).
-* **No status history.**
-  Appointments and claims keep only their current status.
-  Snapshots (#3) will record changes from here on.
+* **No status history before the first snapshot.**
+  Appointments and claims keep only their current status in the source.
+  Snapshots record changes from their first run onward; earlier history cannot be recovered.
 * **Providers store only their current clinic.**
-  A transfer between clinics would rewrite history, which is why the provider-clinic test only warns.
+  A transfer between clinics would rewrite history in staging, which is why the provider-clinic test only warns.
+  `providers_snapshot` keeps the earlier clinic from the time of its first run.
 * **Insurance is not stored on the patient.**
   A payer appears only on claims, and uninsured patients have none (see [caremetrics-source#9](https://github.com/cernanb/caremetrics-source/issues/9)).
 
