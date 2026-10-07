@@ -1,0 +1,13 @@
+snapshots:
+  - name: providers_snapshot
+    relation: ref('stg_caremetrics__providers')
+    description: >
+      One row per version of each provider, from the first snapshot run onward; history from before then is not available.
+      A version is valid from the provider's updated_at until the next version's (dbt_valid_to is null for the current version).
+      The source simulator does not change providers, so each provider keeps one version until the source records
+      departures or clinic transfers; this history is where such changes, including transfers, will be captured.
+    config:
+      unique_key: provider_id
+      strategy: timestamp
+      updated_at: updated_at
+      hard_deletes: ignore

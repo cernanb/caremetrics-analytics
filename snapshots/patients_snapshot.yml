@@ -1,0 +1,13 @@
+snapshots:
+  - name: patients_snapshot
+    relation: ref('stg_caremetrics__patients')
+    description: >
+      One row per version of each patient, from the first snapshot run onward; history from before then is not available.
+      A version is valid from the patient's updated_at until the next version's (dbt_valid_to is null for the current version).
+      Each new version is a record edit, such as an address, name or demographic correction.
+      For edits made by the source simulator, updated_at is when the edit was written, not the simulated event time.
+    config:
+      unique_key: patient_id
+      strategy: timestamp
+      updated_at: updated_at
+      hard_deletes: ignore
